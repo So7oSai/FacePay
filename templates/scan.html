@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FacePay - Scan Face</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        #videoElement {
+            border: 2px solid #0088cc;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            width: 100%;
+            max-width: 320px; /* Control video size */
+            height: auto;
+        }
+        .center-content {
+             display: flex;
+             flex-direction: column;
+             align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container center-content">
+        <h1>Scan Face to Pay</h1>
+        <p>Amount to Pay: ₹<span id="displayAmount">{{ amount }}</span></p>
+        <video id="videoElement" autoplay></video>
+        <button id="scanButton">Scan & Pay</button>
+        <p id="statusMessage"></p>
+        <div id="paymentLinkContainer" style="display:none;">
+            <h2>Payment Details</h2>
+            <p><strong>Name:</strong> <span id="matchedName"></span></p>
+            <p><strong>Amount:</strong> ₹<span id="paymentAmount"></span></p>
+            <a href="#" id="upiPaymentLink" class="pay-button">Click to Pay via UPI</a>
+        </div>
+         <div class="nav-links">
+            <a href="{{ url_for('index') }}" class="nav-button">Back to Home</a>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('videoElement');
+        const scanButton = document.getElementById('scanButton');
+        const statusMessage = document.getElementById('statusMessage');
+        const paymentLinkContainer = document.getElementById('paymentLinkContainer');
+        const matchedNameElem = document.getElementById('matchedName');
+        const paymentAmountElem = document.getElementById('paymentAmount');
+        const upiPaymentLinkElem = document.getElementById('upiPaymentLink');
+        const amountToPay = "{{ amount }}";
+
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+            } catch (err) {
+                console.error("Error accessing webcam: ", err);
+                statusMessage.textContent = "Error accessing webcam. Please allow camera access.";
+                statusMessage.style.color = "red";
+            }
+        }
+
+        scanButton.addEventListener('click', async () => {
+            statusMessage.textContent = "Scanning... please wait.";
+            statusMessage.style.color = "#0088cc";
+            paymentLinkContainer.style.display = 'none';
+
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageDataURL = canvas.toDataURL('image/jpeg');
+
+            try {
+                const response = await fetch("{{ url_for('scan_face_for_payment') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ image: imageDataURL, amount: amountToPay }),
+                });
+                const result = await response.json();
+
+                if (result.status === "success") {
+                    statusMessage.textContent = "Match found!";
+                    statusMessage.style.color = "green";
+                    matchedNameElem.textContent = result.name;
+                    paymentAmountElem.textContent = result.amount;
+                    upiPaymentLinkElem.href = result.upi_link;
+                    paymentLinkContainer.style.display = 'block';
+                } else {
+                    statusMessage.textContent = result.message || "No match found or error occurred.";
+                    statusMessage.style.color = "red";
+                }
+            } catch (error) {
+                console.error('Error during scan:', error);
+                statusMessage.textContent = "An error occurred during scanning. Please try again.";
+                statusMessage.style.color = "red";
+            }
+        });
+
+        window.addEventListener('DOMContentLoaded', startCamera);
+    </script>
+</body>
+</html>

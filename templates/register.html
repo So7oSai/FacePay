@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FacePay - Register</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        #videoElement {
+            border: 2px solid #0088cc;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            width: 100%;
+            max-width: 320px; /* Control video size */
+            height: auto;
+        }
+         .center-content {
+             display: flex;
+             flex-direction: column;
+             align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container center-content">
+        <h1>Register Your Face</h1>
+        <video id="videoElement" autoplay></video>
+        <button id="captureButton">Capture Face</button>
+        <canvas id="canvasElement" style="display:none;"></canvas>
+        
+        <div id="registrationForm" style="display:none; margin-top:20px;">
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" required>
+            
+            <label for="upi">UPI ID:</label>
+            <input type="text" id="upi" name="upi" required placeholder="yourname@upi">
+            
+            <button id="submitRegistration">Submit Registration</button>
+        </div>
+        <p id="statusMessage"></p>
+         <div class="nav-links" style="margin-top: 20px;">
+            <a href="{{ url_for('index') }}" class="nav-button">Back to Home</a>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('videoElement');
+        const captureButton = document.getElementById('captureButton');
+        const canvas = document.getElementById('canvasElement');
+        const registrationForm = document.getElementById('registrationForm');
+        const nameInput = document.getElementById('name');
+        const upiInput = document.getElementById('upi');
+        const submitRegistrationButton = document.getElementById('submitRegistration');
+        const statusMessage = document.getElementById('statusMessage');
+        let capturedImageDataURL = null;
+
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+            } catch (err) {
+                console.error("Error accessing webcam: ", err);
+                statusMessage.textContent = "Error accessing webcam. Please allow camera access.";
+                statusMessage.style.color = "red";
+            }
+        }
+
+        captureButton.addEventListener('click', () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            capturedImageDataURL = canvas.toDataURL('image/jpeg');
+            statusMessage.textContent = "Face captured! Please fill in your details below.";
+            statusMessage.style.color = "green";
+            registrationForm.style.display = 'block';
+            // Optionally stop the video stream here if desired
+            // video.srcObject.getTracks().forEach(track => track.stop());
+        });
+
+        submitRegistrationButton.addEventListener('click', async () => {
+            const name = nameInput.value.trim();
+            const upi = upiInput.value.trim();
+
+            if (!name || !upi || !capturedImageDataURL) {
+                statusMessage.textContent = "Please capture face and fill all fields.";
+                statusMessage.style.color = "red";
+                return;
+            }
+
+            statusMessage.textContent = "Registering... please wait.";
+            statusMessage.style.color = "#0088cc";
+
+            try {
+                const response = await fetch("{{ url_for('register_face') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ name: name, upi: upi, image: capturedImageDataURL }),
+                });
+                const result = await response.json();
+
+                if (result.status === "success") {
+                    statusMessage.textContent = result.message || "Registration successful!";
+                    statusMessage.style.color = "green";
+                    registrationForm.style.display = 'none'; // Hide form after success
+                    nameInput.value = '';
+                    upiInput.value = '';
+                    capturedImageDataURL = null;
+                    startCamera(); // Restart camera for next registration
+                } else {
+                    statusMessage.textContent = result.message || "Registration failed.";
+                    statusMessage.style.color = "red";
+                }
+            } catch (error) {
+                console.error('Error during registration:', error);
+                statusMessage.textContent = "An error occurred during registration. Please try again.";
+                statusMessage.style.color = "red";
+            }
+        });
+
+        window.addEventListener('DOMContentLoaded', startCamera);
+    </script>
+</body>
+</html>

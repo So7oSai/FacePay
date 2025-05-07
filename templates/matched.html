@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FacePay - Payment Matched</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Face Match Found! 🎉</h1>
+        <p><strong>Name:</strong> {{ name }}</p>
+        <p><strong>Amount:</strong> ₹{{ amount }}</p>
+        <a href="{{ upi_link }}" class="pay-button">Click to Pay via UPI</a>
+        <div class="nav-links">
+            <a href="{{ url_for('index') }}" class="nav-button">Back to Home</a>
+        </div>
+    </div>
+</body>
+</html>
